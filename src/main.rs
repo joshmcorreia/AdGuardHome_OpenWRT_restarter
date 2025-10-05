@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::{DateTime, Local};
 use crossterm::{QueueableCommand, cursor};
 use serenity::builder::ExecuteWebhook;
 use serenity::http::Http;
@@ -12,7 +12,7 @@ fn sleep_seconds(num_sec_to_sleep: u64) {
     thread::sleep(seconds_to_sleep);
 }
 
-async fn send_discord_message(message: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn send_discord_message(message: String) -> Result<(), Box<dyn std::error::Error>> {
     let webhook_url = "REPLACE_ME";
     let http = Http::new("");
     let webhook = Webhook::from_url(&http, webhook_url).await?;
@@ -37,15 +37,16 @@ fn restart_adguardhome() {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = stdout();
-    let date = Local::now();
+    let script_start_time = Local::now();
     println!(
         "AdGuardHome OpenWRT Restarter 1.0.0 initialized on {}.",
-        date.format("%m/%d/%Y %H:%M:%S")
+        script_start_time.naive_local().format("%m/%d/%Y %H:%M:%S")
     );
     let mut times_checked = 0;
 
     let google_dns_ip_address = "8.8.8.8";
     let google_hostname = "google.com";
+    let mut internet_outage_start_time: Option<DateTime<Local>> = None;
 
     loop {
         times_checked += 1;
@@ -65,11 +66,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .status()
             .expect("Checking if we have an internet connection");
         if !ping_google_ip_result.success() {
-            println!("The internet is down!");
-            // There isn't a way to send the user a discord message since their internet is out,
-            // but we at least log it in the console
-            sleep_seconds(30);
+            // only set the internet_outage_start_time when the internet first goes out, otherwise
+            // the time will be continuously updated even though it's the same outage
+            if internet_outage_start_time.is_none() {
+                internet_outage_start_time = Some(Local::now());
+                println!(
+                    "The internet went down at {}!",
+                    internet_outage_start_time
+                        .expect("Failed to get the time that the internet outage started")
+                        .naive_local()
+                        .format("%m/%d/%Y %H:%M:%S")
+                );
+            }
+            sleep_seconds(5);
             continue;
+        }
+        if internet_outage_start_time.is_some() {
+            let internet_outage_message = format!(
+                "@everyone The internet went out at {} but is now back online.",
+                internet_outage_start_time
+                    .expect("Failed to get the time that the internet outage started")
+                    .naive_local()
+                    .format("%m/%d/%Y %H:%M:%S")
+            );
+            send_discord_message(internet_outage_message).await?;
+            internet_outage_start_time = None;
         }
 
         let ping_google_com_result = Command::new("ping")
@@ -82,11 +103,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("Checking if DNS is working");
         if !ping_google_com_result.success() {
             println!("DNS appears to be down!");
-
             restart_adguardhome();
             // give the service some time to come back online
             sleep_seconds(10);
-            send_discord_message("@everyone DNS broke so AdGuardHome was restarted").await?;
+            send_discord_message("@everyone DNS broke so AdGuardHome was restarted".to_string())
+                .await?;
         }
 
         sleep_seconds(30);
