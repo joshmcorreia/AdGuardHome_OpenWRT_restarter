@@ -1,21 +1,31 @@
 use chrono::{DateTime, Local};
 use crossterm::{QueueableCommand, cursor};
+use serde::Deserialize;
 use serenity::builder::ExecuteWebhook;
 use serenity::http::Http;
 use serenity::model::webhook::Webhook;
+use std::fs;
 use std::io::{Write, stdout};
 use std::process::{Command, Stdio};
 use std::{thread, time};
+use toml;
+
+#[derive(Deserialize, Debug)]
+struct Config {
+    webhook_url: String,
+}
 
 fn sleep_seconds(num_sec_to_sleep: u64) {
     let seconds_to_sleep = time::Duration::from_secs(num_sec_to_sleep);
     thread::sleep(seconds_to_sleep);
 }
 
-async fn send_discord_message(message: String) -> Result<(), Box<dyn std::error::Error>> {
-    let webhook_url = "REPLACE_ME";
+async fn send_discord_message(
+    message: String,
+    webhook_url: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let http = Http::new("");
-    let webhook = Webhook::from_url(&http, webhook_url).await?;
+    let webhook = Webhook::from_url(&http, &webhook_url).await?;
     let builder = ExecuteWebhook::new().content(message).username("JoshBot");
     webhook.execute(&http, false, builder).await?;
     Ok(())
@@ -43,6 +53,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         script_start_time.naive_local().format("%m/%d/%Y %H:%M:%S")
     );
     let mut times_checked = 0;
+
+    let toml_content = fs::read_to_string("config.toml")?;
+    let config: Config = toml::from_str(&toml_content)?;
 
     let google_dns_ip_address = "8.8.8.8";
     let google_hostname = "google.com";
@@ -89,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .naive_local()
                     .format("%m/%d/%Y %H:%M:%S")
             );
-            send_discord_message(internet_outage_message).await?;
+            send_discord_message(internet_outage_message, &config.webhook_url).await?;
             internet_outage_start_time = None;
         }
 
@@ -106,8 +119,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             restart_adguardhome();
             // give the service some time to come back online
             sleep_seconds(10);
-            send_discord_message("@everyone DNS broke so AdGuardHome was restarted".to_string())
-                .await?;
+            send_discord_message(
+                "@everyone DNS broke so AdGuardHome was restarted".to_string(),
+                &config.webhook_url,
+            )
+            .await?;
         }
 
         sleep_seconds(30);
