@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = stdout();
     let script_start_time = Local::now();
     println!(
-        "AdGuardHome OpenWRT Restarter 1.0.0 initialized on {}.",
+        "AdGuardHome OpenWRT Restarter 1.0.1 initialized on {}.",
         script_start_time.naive_local().format("%m/%d/%Y %r")
     );
     let mut times_checked = 0;
