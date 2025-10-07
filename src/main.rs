@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let script_start_time = Local::now();
     println!(
         "AdGuardHome OpenWRT Restarter 1.0.0 initialized on {}.",
-        script_start_time.naive_local().format("%m/%d/%Y %H:%M:%S")
+        script_start_time.naive_local().format("%m/%d/%Y %r")
     );
     let mut times_checked = 0;
 
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     internet_outage_start_time
                         .expect("Failed to get the time that the internet outage started")
                         .naive_local()
-                        .format("%m/%d/%Y %H:%M:%S")
+                        .format("%m/%d/%Y %r")
                 );
             }
             sleep_seconds(5);
@@ -100,7 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 internet_outage_start_time
                     .expect("Failed to get the time that the internet outage started")
                     .naive_local()
-                    .format("%m/%d/%Y %H:%M:%S")
+                    .format("%m/%d/%Y %r")
             );
             send_discord_message(internet_outage_message, &config.webhook_url).await?;
             internet_outage_start_time = None;
