@@ -73,7 +73,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ping_google_ip_result = Command::new("ping")
             .arg(google_dns_ip_address)
             .arg("-c")
-            .arg("1")
+            // check 3 times to ensure that it wasn't just a one-time fluke
+            .arg("3")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -109,7 +110,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ping_google_com_result = Command::new("ping")
             .arg(google_hostname)
             .arg("-c")
-            .arg("1")
+            // check 3 times to ensure that it wasn't just a one-time fluke
+            .arg("3")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
