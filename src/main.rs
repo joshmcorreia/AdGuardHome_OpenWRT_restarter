@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, TimeDelta};
 use crossterm::{QueueableCommand, cursor};
 use serde::Deserialize;
 use serenity::builder::ExecuteWebhook;
@@ -20,6 +20,29 @@ fn sleep_seconds(num_sec_to_sleep: u64) {
     thread::sleep(seconds_to_sleep);
 }
 
+fn format_timedelta_hhmmss(delta: TimeDelta) -> String {
+    let total_seconds = delta.num_seconds();
+    let mut formatted_string: String = "".to_string();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    if hours > 0 {
+        let hours_string = format!("{} hours ", hours);
+        formatted_string += &hours_string;
+    }
+    if minutes > 0 {
+        let minutes_string = format!("{} minutes ", minutes);
+        formatted_string += &minutes_string;
+    }
+    if seconds > 0 {
+        let seconds_string = format!("{} seconds ", seconds);
+        formatted_string += &seconds_string;
+    }
+    // remove the trailing space
+    formatted_string.pop();
+    return formatted_string;
+}
+
 async fn send_discord_message(
     message: String,
     webhook_url: &String,
@@ -28,7 +51,7 @@ async fn send_discord_message(
     let webhook = Webhook::from_url(&http, &webhook_url).await?;
     let builder = ExecuteWebhook::new().content(message).username("JoshBot");
     webhook.execute(&http, false, builder).await?;
-    Ok(())
+    return Ok(());
 }
 
 fn restart_adguardhome() {
@@ -87,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!(
                     "The internet went down at {}!",
                     internet_outage_start_time
-                        .expect("Failed to get the time that the internet outage started")
+                        .unwrap()
                         .naive_local()
                         .format("%m/%d/%Y %r")
                 );
@@ -96,12 +119,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         if internet_outage_start_time.is_some() {
+            let outage_duration =
+                Local::now().naive_local() - internet_outage_start_time.unwrap().naive_local();
+            let outage_duration_hhmmss = format_timedelta_hhmmss(outage_duration);
             let internet_outage_message = format!(
-                "@everyone The internet went out at {} but is now back online.",
+                "@everyone The internet went out at {} but is now back online. The outage lasted {}.",
                 internet_outage_start_time
-                    .expect("Failed to get the time that the internet outage started")
+                    .unwrap()
                     .naive_local()
-                    .format("%m/%d/%Y %r")
+                    .format("%m/%d/%Y %r"),
+                outage_duration_hhmmss
             );
             send_discord_message(internet_outage_message, &config.webhook_url).await?;
             internet_outage_start_time = None;
@@ -122,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // give the service some time to come back online
             sleep_seconds(10);
             send_discord_message(
-                "@everyone DNS broke so AdGuardHome was restarted".to_string(),
+                "@everyone AdGuardHome was restarted because DNS stopped working.".to_string(),
                 &config.webhook_url,
             )
             .await?;
