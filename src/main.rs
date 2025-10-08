@@ -1,4 +1,6 @@
-use chrono::{DateTime, Local, TimeDelta};
+use chrono::{DateTime, TimeDelta, Utc};
+use chrono_tz::Tz;
+use chrono_tz::US::Pacific;
 use crossterm::{QueueableCommand, cursor};
 use serde::Deserialize;
 use serenity::builder::ExecuteWebhook;
@@ -70,10 +72,10 @@ fn restart_adguardhome() {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = stdout();
-    let script_start_time = Local::now();
+    let script_start_time = Utc::now().with_timezone(&Pacific);
     println!(
         "AdGuardHome OpenWRT Restarter 1.0.1 initialized on {}.",
-        script_start_time.naive_local().format("%m/%d/%Y %r")
+        script_start_time.format("%m/%d/%Y %r")
     );
     let mut times_checked = 0;
 
@@ -82,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let google_dns_ip_address = "8.8.8.8";
     let google_hostname = "google.com";
-    let mut internet_outage_start_time: Option<DateTime<Local>> = None;
+    let mut internet_outage_start_time: Option<DateTime<Tz>> = None;
 
     loop {
         times_checked += 1;
@@ -106,13 +108,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // only set the internet_outage_start_time when the internet first goes out, otherwise
             // the time will be continuously updated even though it's the same outage
             if internet_outage_start_time.is_none() {
-                internet_outage_start_time = Some(Local::now());
+                internet_outage_start_time = Some(Utc::now().with_timezone(&Pacific));
                 println!(
                     "The internet went down at {}!",
-                    internet_outage_start_time
-                        .unwrap()
-                        .naive_local()
-                        .format("%m/%d/%Y %r")
+                    internet_outage_start_time.unwrap().format("%m/%d/%Y %r")
                 );
             }
             sleep_seconds(5);
@@ -120,14 +119,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if internet_outage_start_time.is_some() {
             let outage_duration =
-                Local::now().naive_local() - internet_outage_start_time.unwrap().naive_local();
+                Utc::now().with_timezone(&Pacific) - internet_outage_start_time.unwrap();
             let outage_duration_hhmmss = format_timedelta_hhmmss(outage_duration);
             let internet_outage_message = format!(
                 "@everyone The internet went out at {} but is now back online. The outage lasted {}.",
-                internet_outage_start_time
-                    .unwrap()
-                    .naive_local()
-                    .format("%m/%d/%Y %r"),
+                internet_outage_start_time.unwrap().format("%m/%d/%Y %r"),
                 outage_duration_hhmmss
             );
             send_discord_message(internet_outage_message, &config.webhook_url).await?;
