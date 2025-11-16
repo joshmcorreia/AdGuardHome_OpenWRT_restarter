@@ -50,9 +50,15 @@ async fn send_discord_message(
     webhook_url: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let http = Http::new("");
-    let webhook = Webhook::from_url(&http, &webhook_url).await?;
-    let builder = ExecuteWebhook::new().content(message).username("JoshBot");
-    webhook.execute(&http, false, builder).await?;
+    match Webhook::from_url(&http, &webhook_url).await {
+        Ok(data) => {
+            let builder = ExecuteWebhook::new().content(message).username("JoshBot");
+            data.execute(&http, false, builder).await?;
+        }
+        Err(e) => {
+            eprintln!("Failed to send discord message: {:?}", e);
+        }
+    };
     return Ok(());
 }
 
@@ -74,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout = stdout();
     let script_start_time = Utc::now().with_timezone(&Pacific);
     println!(
-        "AdGuardHome OpenWRT Restarter 1.0.1 initialized on {}.",
+        "AdGuardHome OpenWRT Restarter 1.0.2 initialized on {}.",
         script_start_time.format("%m/%d/%Y %r")
     );
     let mut times_checked = 0;
